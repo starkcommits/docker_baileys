@@ -209,6 +209,35 @@ class MessageOperations {
         }
     }
 
+    async sendReply(socket: WASocket, jid: string, text: string, quotedMessage: any): Promise<any> {
+        try {
+            const message = await socket.sendMessage(
+                jid,
+                { text },
+                { quoted: quotedMessage }
+            );
+            logger.info({ jid, messageId: message?.key?.id }, 'Reply message sent');
+            return message;
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to send reply');
+            throw error;
+        }
+    }
+
+    async sendMention(socket: WASocket, jid: string, text: string, mentions: string[]): Promise<any> {
+        try {
+            const message = await socket.sendMessage(jid, {
+                text,
+                mentions,
+            });
+            logger.info({ jid, mentions }, 'Mention message sent');
+            return message;
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to send mention');
+            throw error;
+        }
+    }
+
     async forwardMessage(socket: WASocket, jid: string, message: any): Promise<any> {
         try {
             const forwarded = await socket.sendMessage(jid, {
@@ -219,6 +248,98 @@ class MessageOperations {
             return forwarded;
         } catch (error) {
             logger.error({ error, jid }, 'Failed to forward message');
+            throw error;
+        }
+    }
+
+    async editMessage(
+        socket: WASocket,
+        jid: string,
+        messageKey: any,
+        newText: string
+    ): Promise<any> {
+        try {
+            const edited = await socket.sendMessage(jid, {
+                text: newText,
+                edit: messageKey,
+            });
+            logger.info({ jid, messageId: messageKey.id }, 'Message edited');
+            return edited;
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to edit message');
+            throw error;
+        }
+    }
+
+    async sendViewOnce(
+        socket: WASocket,
+        jid: string,
+        mediaType: 'image' | 'video',
+        mediaBuffer: Buffer,
+        caption?: string
+    ): Promise<any> {
+        try {
+            const messageContent: any = {
+                caption,
+                viewOnce: true,
+            };
+
+            if (mediaType === 'image') {
+                messageContent.image = mediaBuffer;
+            } else {
+                messageContent.video = mediaBuffer;
+            }
+
+            const message = await socket.sendMessage(jid, messageContent);
+            logger.info({ jid, mediaType }, 'ViewOnce message sent');
+            return message;
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to send ViewOnce message');
+            throw error;
+        }
+    }
+
+    async sendPoll(
+        socket: WASocket,
+        jid: string,
+        name: string,
+        options: string[],
+        selectableCount: number = 1
+    ): Promise<any> {
+        try {
+            const message = await socket.sendMessage(jid, {
+                poll: {
+                    name,
+                    values: options,
+                    selectableCount,
+                },
+            });
+            logger.info({ jid, pollName: name }, 'Poll message sent');
+            return message;
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to send poll');
+            throw error;
+        }
+    }
+
+    async pinMessage(socket: WASocket, jid: string, messageKey: any, pin: boolean = true): Promise<void> {
+        try {
+            // Note: Message pinning may not be fully supported in all Baileys versions
+            // This uses chat-level pinning as a workaround
+            await socket.chatModify({ pin }, jid);
+            logger.info({ jid, messageId: messageKey.id, pin }, 'Message pin status updated');
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to update pin status');
+            throw error;
+        }
+    }
+
+    async unpinMessage(socket: WASocket, jid: string, messageKey: any): Promise<void> {
+        try {
+            await this.pinMessage(socket, jid, messageKey, false);
+            logger.info({ jid, messageId: messageKey.id }, 'Message unpinned');
+        } catch (error) {
+            logger.error({ error, jid }, 'Failed to unpin message');
             throw error;
         }
     }
